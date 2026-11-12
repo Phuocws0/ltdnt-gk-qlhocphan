@@ -65,4 +65,6 @@ HTTP dùng cho demo cục bộ. Khi triển khai Internet cần HTTPS, CORS đú
 - [Video demo Android](docs/videos/demo-android.mp4)
 - [Ảnh minh chứng](docs/screenshots)
 
+Báo cáo trình bày từng bước theo mẫu tham khảo, ghi tên Trần Văn Phước (23IT217) và dùng Times New Roman. Để dựng lại PDF, cài Python `reportlab`, chuẩn bị các tệp `Times.TTF` và `Timesbd.TTF`, rồi chạy `REPORT_FONT_DIR=/duong-dan-font python scripts/report.py`.
+
 Đã kiểm thử web bằng Chromium và native Android bằng Expo Go. Đã export thành công cả web, Android và iOS; iOS chưa chạy thực tế do môi trường Linux. Chạy `cd mobile && npx expo export --platform all` để kiểm tra lại cả ba bundle. Repo công khai để người chấm mở được link. Thông tin tên, MSSV và lớp chưa được cung cấp nên chưa ghi vào báo cáo.

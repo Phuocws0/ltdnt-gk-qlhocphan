@@ -1,90 +1,289 @@
-# BÁO CÁO GIỮA KỲ - QL HỌC PHẦN
+# BÁO CÁO GIỮA KỲ
 
-## 1. Mục tiêu và đối chiếu đề
+- **Môn học:** Lập trình đa nền tảng
+- **Đề tài:** Ứng dụng quản lý giảng viên QLHocPhan
+- **Sinh viên:** Trần Văn Phước
+- **MSSV:** 23IT217
+- **Mã nguồn:** https://github.com/Phuocws0/ltdnt-gk-qlhocphan
+- **Video web:** https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-web.webm
+- **Video Android:** https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-android.mp4
 
-Ứng dụng quản trị giảng viên của cơ sở dữ liệu QLHocPhan. Công nghệ: React Native 0.88, Expo SDK 58, React 19, TypeScript, Express và MongoDB 8.
+Ứng dụng dùng React Native và Expo để chạy trên web, Android và iOS; Express cung cấp API; MongoDB lưu dữ liệu giảng viên. Báo cáo trình bày từng bước xây dựng, các đoạn mã chính và ảnh kiểm chứng kết quả.
 
-| Yêu cầu | Điểm theo đề | Thực hiện |
-| --- | --- | --- |
-| 1. MongoDB; thêm và hiển thị IDGV, Fullname, Image, SumClass trên web | 8.0 | API POST/GET, form thêm có ảnh, danh sách, dữ liệu lưu MongoDB |
-| 2. Đăng nhập, xóa, sửa và chức năng nâng cao | 1.5 | JWT, PUT/DELETE, xác nhận xóa, tìm không dấu, sắp xếp, phân trang, thống kê, validation |
-| 3. Nhập ảnh và hiển thị trên di động | 0.5 | Expo ImagePicker, thư viện/camera, preview, lưu ảnh và hiển thị trong danh sách/chi tiết |
+<!-- pagebreak -->
 
-Không tự bổ sung trường nghiệp vụ. Collection chỉ chứa IDGV, Fullname, Image, SumClass; _id là khóa kỹ thuật MongoDB tự tạo. Không thêm createdAt, updatedAt hay tài khoản vào collection này. Thông tin quản trị lưu trong cấu hình server với mật khẩu bcrypt, không nằm trong dữ liệu giảng viên.
+## Bước 1 Tạo cấu trúc dự án
 
-## 2. Kiến trúc và dữ liệu
+Dự án gồm ứng dụng Expo, backend Express, dữ liệu mẫu và thư mục minh chứng. Thiết bị gọi API qua HTTP trong môi trường demo, không kết nối trực tiếp với MongoDB.
 
-Ứng dụng Expo (web/Android/iOS) gọi REST API Express qua HTTP trong môi trường demo. API xác thực Bearer JWT, kiểm tra đầu vào rồi truy cập MongoDB. Client không có mật khẩu database. MongoDB chạy bằng Docker, dữ liệu được giữ trong volume khi container khởi động lại.
+```text
+mobile/src/app/index.tsx       Giao diện và thao tác giảng viên
+mobile/src/lib/api.ts          Gọi API và lưu phiên đăng nhập
+server/src/app.js              REST API, xác thực và validation
+server/src/db.js               Kết nối và ràng buộc MongoDB
+database/GiangVien-export.json File dữ liệu nộp bài
+docs/screenshots/              Ảnh minh chứng
+```
 
-IDGV được server tự cấp theo dạng GV001, GV002... và có unique index; người dùng không nhập mã thủ công. Fullname là chuỗi 2-100 ký tự đã trim. SumClass là số nguyên 0-999. Image là data URI PNG/JPEG/WebP, tối đa 2 MB; server kiểm tra chữ ký đầu tệp. Dữ liệu ảnh nằm trong JSON nên chuyển máy vẫn hiển thị được.
+## Bước 2 Cài đặt thư viện và khởi động
 
-JSON Schema trên collection yêu cầu đủ các trường và cấm trường ngoài danh sách. Ràng buộc số nguyên và nội dung ảnh được kiểm tra thêm ở API. Xem database/validator.json và server/src/db.js. Tệp database/GiangVien.json chứa sáu hồ sơ mẫu, tổng 49 lớp. Tệp GiangVien-export.json là bản xuất từ MongoDB tại thời điểm bàn giao, có 8 hồ sơ và không có _id để đáp ứng đúng bốn trường của đề.
+Các thư viện Expo được cài theo phiên bản SDK tương thích. Package lock giúp cài lại đúng phiên bản đã kiểm thử.
 
-## 3. Các bước thực hiện và lệnh thư viện
+```bash
+npm ci
+npm ci --prefix server
+npm ci --prefix mobile
+cd mobile
+npx expo install expo-image-picker expo-secure-store expo-font
+npx expo install @expo-google-fonts/plus-jakarta-sans
+```
 
-Khởi tạo bằng `npx create-expo-app@latest mobile --template blank-typescript`. Cài thư viện Expo theo đúng SDK bằng `npx expo install react-dom react-native-web expo-image-picker expo-secure-store @expo/vector-icons expo-router react-native-safe-area-context react-native-screens expo-linking expo-constants expo-font @expo-google-fonts/plus-jakarta-sans` trong mobile. Giao diện dùng Plus Jakarta Sans và tông xanh, chạy chung trên web, Android và iOS.
+Khởi động MongoDB bằng Docker, tạo cấu hình server, nạp dữ liệu mẫu rồi chạy web và backend:
 
-Server dùng express, mongodb, cors, helmet, express-rate-limit, jsonwebtoken, bcryptjs, dotenv và zod. Công cụ kiểm thử dùng node:test, Playwright; kiểm tra TypeScript và ESLint. Các package-lock.json đã khóa phiên bản; trên máy mới dùng npm ci theo README.
+```bash
+npm run setup
+docker compose up -d
+npm run seed
+npm run dev
+```
 
-Bước 1: chạy `npm ci`, `npm ci --prefix server`, `npm ci --prefix mobile`.
-Bước 2: `npm run setup` tạo server/.env với mật khẩu đã băm và JWT secret ngẫu nhiên.
-Bước 3: `docker compose up -d` khởi động MongoDB; `npm run seed` tạo schema/index và nạp mẫu.
-Bước 4: `npm run dev`, mở localhost:8081; đăng nhập admin / Admin@123456.
-Bước 5: trên điện thoại mở Expo Go, cùng Wi-Fi; dùng địa chỉ LAN cho API như README.
-Bước 6: chạy các kiểm thử, `npm run export` để lấy JSON nộp bài.
+## Bước 3 Tạo cơ sở dữ liệu MongoDB
 
-## 4. Chức năng và cách sử dụng
+Database có tên QLHocPhan, collection GiangVien. Mỗi hồ sơ chỉ có bốn trường nghiệp vụ IDGV, Fullname, Image, SumClass. MongoDB tự tạo _id; file JSON nộp bài đã loại trường kỹ thuật này. Schema cấm thêm trường ngoài danh sách.
 
-Đăng nhập: nhập tài khoản quản trị. Sai mật khẩu hiển thị lỗi; truy cập API thiếu JWT bị từ chối 401. Token hết hạn sau 8 giờ; native lưu bằng SecureStore, web giữ trong phiên trình duyệt. Đăng xuất xóa token cục bộ. API giới hạn 20 lần đăng nhập/15 phút mỗi IP.
+```javascript
+required: ["IDGV", "Fullname", "Image", "SumClass"],
+additionalProperties: false,
+properties: {
+  _id: { bsonType: "objectId" },
+  IDGV: { bsonType: "string" },
+  Fullname: { bsonType: "string" },
+  Image: { bsonType: "string" },
+  SumClass: { bsonType: ["int", "long", "double", "decimal"] },
+}
+```
 
-Thêm: bấm Thêm giảng viên, nhập họ tên và số lớp; chọn ảnh (hoặc chụp ảnh trên di động); xem preview và lưu. Mã giảng viên tự sinh sau khi lưu. Các trường sai hiển thị thông báo và giữ lại nội dung để sửa. Không lưu khi thiếu ảnh hoặc số lớp âm/thập phân.
+Ảnh dưới đây lấy từ mongosh. Chuỗi ảnh Base64 được rút ngắn để dễ đọc; file JSON vẫn chứa ảnh đầy đủ. Bản xuất hiện tại có 8 hồ sơ.
 
-Hiển thị: danh sách gồm ảnh, tên, mã và số lớp. Bấm hồ sơ để mở chi tiết. Phần đầu trang cho biết số giảng viên và tổng lớp. Nút Làm mới đồng bộ lại dữ liệu.
+![Dữ liệu MongoDB](screenshots/09-mongodb.png)
 
-Sửa: chọn Sửa, cập nhật tên/ảnh/số lớp, giữ nguyên mã tự sinh và lưu bằng PUT. Xóa: chọn Xóa, xem tên và mã trong hộp xác nhận; Giữ lại hủy thao tác, Xác nhận xóa mới gọi DELETE. Có trạng thái đang lưu và khóa nút để tránh gửi trùng. Nút Đăng xuất luôn hiện ở thanh trên sau khi đăng nhập.
+## Bước 4 Kết nối backend với MongoDB
 
-Nâng cao: tìm kiếm theo mã hoặc họ tên không phân biệt dấu; sắp xếp mã, tên, số lớp giảm dần; phân trang 6 hồ sơ/trang; trạng thái danh sách rỗng và lỗi kết nối. Các kết quả tìm kiếm và thống kê được tính trên dữ liệu tải từ MongoDB.
+Backend đọc địa chỉ MongoDB từ biến môi trường, áp dụng validator và tạo unique index cho IDGV. Mật khẩu database không nằm trong ứng dụng Expo.
 
-## 5. API
+```javascript
+export const client = new MongoClient(
+  process.env.MONGODB_URI || "mongodb://127.0.0.1:27028",
+);
+export async function connect() {
+  await client.connect();
+  const db = client.db(process.env.MONGODB_DB || "QLHocPhan");
+  const collection = db.collection("GiangVien");
+  await collection.createIndex({ IDGV: 1 }, { unique: true });
+  return collection;
+}
+```
 
-POST /api/auth/login: xác thực username/password, trả JWT.
-GET /api/health: kiểm tra kết nối MongoDB.
-GET /api/giang-vien: lấy dữ liệu; hỗ trợ q, sort, order.
-POST /api/giang-vien: thêm hồ sơ, mã 201.
-PUT /api/giang-vien/:id: sửa hồ sơ, mã 200.
-DELETE /api/giang-vien/:id: xóa hồ sơ, mã 204.
-Bốn endpoint giảng viên đều yêu cầu Authorization: Bearer token. Validation lỗi 400, thiếu quyền 401, không có hồ sơ 404, trùng mã 409. Server không trả stack trace cho client.
+## Bước 5 Lập trình đăng nhập quản trị
 
-## 6. Kiểm thử và bằng chứng
+Server so sánh mật khẩu với bản băm bcrypt trong cấu hình. Khi thông tin đúng, server cấp JWT có thời hạn 8 giờ. Sai tài khoản hoặc mật khẩu trả HTTP 401; API giới hạn số lần thử đăng nhập.
 
-API integration test dùng MongoDB thật và database riêng: xác thực, CRUD, mã tự sinh khi tạo đồng thời, kiểm tra persistence, trường thừa, ảnh giả, số âm/thập phân, mã nhập thủ công và xóa bản ghi không tồn tại. Tất cả assertion đã đạt.
+```javascript
+const valid = await bcrypt.compare(password, config.passwordHash);
+if (username !== config.username || !valid)
+  return res.status(401).json({
+    message: "Tên đăng nhập hoặc mật khẩu không đúng.",
+  });
+res.json({
+  token: jwt.sign({ role: "admin" }, config.secret, {
+    subject: username,
+    expiresIn: "8h",
+  }),
+  username,
+});
+```
 
-Playwright Chromium: đăng nhập sai/đúng; thêm hồ sơ và tải ảnh qua hộp chọn tệp; sửa số lớp; tải lại trang vẫn giữ dữ liệu; tìm không dấu; xem chi tiết; đổi viewport 390x844; hủy xóa rồi xác nhận xóa; đăng xuất. Đã đạt. Video tự động ghi lại luồng này tại docs/videos/demo-web.webm.
+## Bước 6 Bảo vệ API bằng JWT
 
-TypeScript và ESLint đã đạt. Expo Doctor đạt 20/20. Đã kiểm tra export cho web, Android và iOS. Kiểm thử Android native sử dụng Expo Go 58 trên trình giả lập API 35; đã đăng nhập, mở danh sách, chọn ảnh từ Android Photo Picker, cắt ảnh, lưu hồ sơ và xác minh Image trong MongoDB chuyển sang JPEG mới. Xem ảnh 06-08 và video demo-android.mp4. Chưa kiểm thử iOS hoặc điện thoại vật lý. Bundle Android không phải APK độc lập.
+Các endpoint giảng viên kiểm tra Bearer token trước khi truy cập MongoDB. Ứng dụng lưu phiên bằng SecureStore trên Android/iOS và sessionStorage trên web. Nút Đăng xuất xóa token cục bộ.
 
-Ảnh 01-login.png: màn hình đăng nhập. 02-dashboard.png: danh sách từ MongoDB. 03-add.png: form nhập và preview ảnh. 04-detail.png: hồ sơ sau cập nhật. 05-mobile-web.png: giao diện web ở kích thước điện thoại. 06-android.png, 07-android-picker.png và 08-android-photo.png: thao tác native Android. 09-mongodb.png: dữ liệu trong MongoDB, phần Image được rút ngắn khi hiển thị; file JSON vẫn chứa toàn bộ ảnh.
+```javascript
+app.use("/api", (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.replace(/^Bearer /, "");
+    const claims = jwt.verify(token, config.secret);
+    if (claims.role !== "admin") throw Error();
+    next();
+  } catch {
+    res.status(401).json({
+      message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+    });
+  }
+});
+```
 
-![Đăng nhập](screenshots/01-login.png)
-![Danh sách giảng viên](screenshots/02-dashboard.png)
-![Form thêm ảnh](screenshots/03-add.png)
-![Chi tiết](screenshots/04-detail.png)
-![Web trên màn hình nhỏ](screenshots/05-mobile-web.png)
+## Bước 7 Hiển thị danh sách giảng viên
 
-## 7. Thành phần nộp bài và trình bày
+GET /api/giang-vien đọc dữ liệu từ MongoDB và trả các trường nghiệp vụ, bỏ _id. Giao diện có tìm kiếm theo mã hoặc tên, sắp xếp theo mã, tên hoặc số lớp và phân trang sáu hồ sơ mỗi trang.
 
-Các thành phần theo đề: báo cáo PDF có các bước thực hiện, lệnh cài thư viện và ảnh minh họa; file database/GiangVien-export.json đúng bốn trường; link GitHub source code; link video demo. Bản Markdown có thể chỉnh sửa nằm tại docs/BAO_CAO.md. Thông tin họ tên/MSSV/lớp chưa được cung cấp nên không tự điền sai.
+```javascript
+res.json(
+  await collection
+    .find(filter, { projection: { _id: 0 } })
+    .sort({ [sort]: req.query.order === "desc" ? -1 : 1, IDGV: 1 })
+    .toArray(),
+);
+```
 
-Kịch bản 3-5 phút: giới thiệu schema và bốn trường; đăng nhập sai/đúng; thêm hồ sơ kèm ảnh; tìm và sửa số lớp; tải lại để chứng minh persistence; mở MongoDB kiểm tra; xóa có xác nhận; mở Expo trên Android, chọn ảnh và xem thông tin. Kết thúc bằng các file nộp.
+## Bước 8 Thêm giảng viên và tự tạo mã
 
-## 8. Tài liệu tham khảo
+Người dùng nhập họ tên, số lớp và chọn ảnh. Server cấp mã dạng GV001, GV002 theo mã lớn nhất hiện có; unique index và thao tác thử lại xử lý hai yêu cầu tạo cùng lúc. Client không gửi IDGV thủ công.
 
-https://docs.expo.dev/versions/v58.0.0/sdk/imagepicker/
-https://docs.expo.dev/versions/v58.0.0/sdk/securestore/
-https://docs.expo.dev/router/installation/
+```javascript
+async function nextTeacherId(collection) {
+  const existing = await collection
+    .find({ IDGV: /^GV\d+$/ }, { projection: { IDGV: 1, _id: 0 } })
+    .toArray();
+  const max = existing.reduce(
+    (value, row) => Math.max(value, Number(row.IDGV.slice(2))), 0
+  );
+  return `GV${String(max + 1).padStart(3, "0")}`;
+}
+```
 
-## 9. Liên kết bàn giao
+Server chỉ chấp nhận ảnh PNG, JPEG hoặc WebP hợp lệ, tối đa 2 MB. Họ tên dài 2–100 ký tự; số lớp là số nguyên từ 0 đến 999. Lỗi nhập liệu trả HTTP 400.
 
-Source: https://github.com/Phuocws0/ltdnt-gk-qlhocphan
-Video web: https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-web.webm
-Video Android: https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-android.mp4
+## Bước 9 Sửa và xóa giảng viên
+
+PUT /api/giang-vien/:id cập nhật họ tên, ảnh, số lớp nhưng giữ nguyên mã tự sinh. DELETE /api/giang-vien/:id chạy sau hộp xác nhận trên giao diện. Hồ sơ không tồn tại trả HTTP 404.
+
+```javascript
+const input = teacherInput.parse(req.body);
+const r = await collection.updateOne(
+  { IDGV: req.params.id }, { $set: input }
+);
+if (!r.matchedCount)
+  return res.status(404).json({ message: "Giảng viên không tồn tại." });
+```
+
+```javascript
+const r = await collection.deleteOne({ IDGV: req.params.id });
+if (!r.deletedCount)
+  return res.status(404).json({ message: "Giảng viên không tồn tại." });
+res.status(204).end();
+```
+
+<!-- pagebreak -->
+
+## Bước 10 Nhập và hiển thị ảnh trên di động
+
+Expo ImagePicker mở thư viện ảnh hoặc camera. Người dùng có thể cắt ảnh vuông, xem trước rồi lưu ảnh Base64 vào trường Image. Ảnh hiển thị ở danh sách và màn hình chi tiết trên web và Android; iOS dùng cùng mã React Native.
+
+```typescript
+const result = await (
+  camera
+    ? ImagePicker.launchCameraAsync
+    : ImagePicker.launchImageLibraryAsync
+)({
+  mediaTypes: ["images"],
+  base64: true,
+  quality: 0.7,
+  allowsEditing: true,
+  aspect: [1, 1],
+});
+```
+
+## Bước 11 Gửi biểu mẫu từ Expo
+
+Ứng dụng kiểm tra dữ liệu trước khi gửi. Khi thêm dùng POST, khi sửa dùng PUT. Sau khi lưu thành công, danh sách được tải lại từ MongoDB. Giao diện dùng font Plus Jakarta Sans và có nút Đăng xuất trên thanh trên.
+
+```typescript
+await request(
+  "/giang-vien" + (editing ? "/" + encodeURIComponent(editing) : ""),
+  token,
+  editing ? "PUT" : "POST",
+  {
+    Fullname: form.Fullname,
+    Image: form.Image,
+    SumClass: Number(form.SumClass),
+  },
+);
+await load();
+```
+
+## Bước 12 Kiểm thử và xuất dữ liệu nộp bài
+
+API integration test chạy với MongoDB thật trong database test riêng, kiểm tra xác thực, CRUD, validation và mã tự sinh khi tạo đồng thời. Playwright kiểm tra web: đăng nhập, thêm ảnh, sửa, tìm kiếm, xem chi tiết, xóa và đăng xuất. TypeScript, ESLint và export Expo cho web, Android, iOS đều đạt. Android native đã được kiểm tra trên Expo Go; iOS chưa chạy trực tiếp trên thiết bị.
+
+```bash
+npm --prefix server test
+npx playwright test
+npm --prefix mobile run typecheck
+npm --prefix mobile run lint
+cd mobile && npx expo export --platform all
+npm run export
+```
+
+<!-- pagebreak -->
+
+## Kết quả trên nền tảng web
+
+### Màn hình đăng nhập
+
+Người dùng nhập tài khoản quản trị để xem danh sách giảng viên.
+
+![Màn hình đăng nhập web](screenshots/01-login.png)
+
+### Danh sách giảng viên
+
+Danh sách hiển thị ảnh, mã, họ tên, số lớp, công cụ tìm kiếm, sắp xếp và nút Đăng xuất.
+
+![Danh sách giảng viên web](screenshots/02-dashboard.png)
+
+### Thêm giảng viên và chọn ảnh
+
+Mã giảng viên được tự động tạo sau khi lưu. Biểu mẫu cho xem trước ảnh đã chọn.
+
+![Biểu mẫu thêm giảng viên](screenshots/03-add.png)
+
+### Chi tiết giảng viên
+
+Sau khi sửa, hồ sơ hiển thị số lớp mới và ảnh trong màn hình chi tiết.
+
+![Chi tiết giảng viên](screenshots/04-detail.png)
+
+### Giao diện web trên màn hình nhỏ
+
+Bố cục danh sách chuyển sang dạng gọn khi chiều rộng tương đương điện thoại.
+
+![Giao diện web kích thước điện thoại](screenshots/05-mobile-web.png)
+
+## Kết quả trên Android
+
+### Danh sách trên ứng dụng Expo
+
+Ứng dụng React Native chạy trong Expo Go trên trình giả lập Android API 35.
+
+![Ứng dụng Android](screenshots/06-android.png)
+
+### Chọn ảnh từ thư viện Android
+
+Expo ImagePicker mở trình chọn ảnh của hệ điều hành.
+
+![Trình chọn ảnh Android](screenshots/07-android-picker.png)
+
+### Ảnh sau khi chọn và lưu
+
+Ảnh được đọc, lưu vào trường Image và hiển thị trong ứng dụng.
+
+![Ảnh giảng viên trên Android](screenshots/08-android-photo.png)
+
+## Tệp và liên kết bàn giao
+
+- Mã nguồn: https://github.com/Phuocws0/ltdnt-gk-qlhocphan
+- Báo cáo PDF: output/pdf/Bao-cao-QLHocPhan.pdf
+- File MongoDB JSON: database/GiangVien-export.json
+- Video demo web: https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-web.webm
+- Video demo Android: https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-android.mp4
+
+File JSON gồm đúng bốn trường IDGV, Fullname, Image, SumClass. Video trong repo có thể được thay bằng bản quay cuối cùng của sinh viên trước khi nộp.

@@ -1,0 +1,36 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": [
+      "IDGV",
+      "Fullname",
+      "Image",
+      "SumClass"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "_id": {
+        "bsonType": "objectId"
+      },
+      "IDGV": {
+        "bsonType": "string"
+      },
+      "Fullname": {
+        "bsonType": "string"
+      },
+      "Image": {
+        "bsonType": "string"
+      },
+      "SumClass": {
+        "bsonType": [
+          "int",
+          "long",
+          "double",
+          "decimal"
+        ],
+        "minimum": 0,
+        "maximum": 999
+      }
+    }
+  }
+}

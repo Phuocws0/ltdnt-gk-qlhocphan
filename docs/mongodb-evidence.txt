@@ -1,0 +1,46 @@
+Database: QLHocPhan
+Collection: GiangVien
+[
+  {
+    _id: ObjectId('6af510a20acb83d66bca5d4e'),
+    IDGV: 'GV001',
+    Fullname: 'Nguyễn Minh Anh',
+    Image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD... (3159 characters)',
+    SumClass: 8
+  },
+  {
+    _id: ObjectId('6af510a20acb83d66bca5d4f'),
+    IDGV: 'GV002',
+    Fullname: 'Trần Hoàng Nam',
+    Image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAA... (1250 characters)',
+    SumClass: 12
+  },
+  {
+    _id: ObjectId('6af510a20acb83d66bca5d50'),
+    IDGV: 'GV003',
+    Fullname: 'Lê Thu Hà',
+    Image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAA... (1250 characters)',
+    SumClass: 6
+  },
+  {
+    _id: ObjectId('6af510a20acb83d66bca5d51'),
+    IDGV: 'GV004',
+    Fullname: 'Phạm Đức Huy',
+    Image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAA... (1250 characters)',
+    SumClass: 10
+  },
+  {
+    _id: ObjectId('6af510a20acb83d66bca5d52'),
+    IDGV: 'GV005',
+    Fullname: 'Võ Ngọc Linh',
+    Image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAA... (1250 characters)',
+    SumClass: 4
+  },
+  {
+    _id: ObjectId('6af510a20acb83d66bca5d53'),
+    IDGV: 'GV006',
+    Fullname: 'Đặng Quốc Bảo',
+    Image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAA... (1250 characters)',
+    SumClass: 9
+  }
+]

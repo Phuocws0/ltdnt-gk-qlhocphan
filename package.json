@@ -1,0 +1,28 @@
+{
+  "name": "ltdnt_gk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "concurrently -k \"npm --prefix server run dev\" \"npm --prefix mobile run web\"",
+    "seed": "npm --prefix server run seed",
+    "export": "npm --prefix server run export",
+    "test": "npm --prefix server test && playwright test",
+    "typecheck": "npm --prefix mobile run typecheck",
+    "web:build": "cd mobile && npx expo export --platform web",
+    "lint": "npm --prefix mobile run lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "concurrently": "^10.0.7"
+  },
+  "private": true
+}

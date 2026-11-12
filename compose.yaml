@@ -1,0 +1,16 @@
+services:
+  mongo:
+    image: mongo:8
+    container_name: ltdnt-mongo
+    ports:
+      - "127.0.0.1:27028:27017"
+    volumes:
+      - ltdnt_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  ltdnt_mongo_data:
+    name: ltdnt_mongo_data

@@ -8,8 +8,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
+  Text as NativeText,
   TextInput,
+  type TextProps,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -18,6 +19,12 @@ import { StatusBar } from "expo-status-bar";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { request, storage } from "../lib/api";
+function Text({ style, ...props }: TextProps) {
+  return (
+    <NativeText {...props} style={[{ fontFamily: "PlusJakartaSans" }, style]} />
+  );
+}
+
 type Teacher = {
   IDGV: string;
   Fullname: string;
@@ -26,7 +33,7 @@ type Teacher = {
 };
 type Draft = Omit<Teacher, "SumClass"> & { SumClass: string };
 const empty: Draft = { IDGV: "", Fullname: "", Image: "", SumClass: "0" };
-const green = "#145b48";
+
 function Button({
   title,
   onPress,
@@ -50,16 +57,14 @@ function Button({
       onPress={onPress}
       style={({ pressed }) => [
         s.button,
-        quiet ? s.quiet : { backgroundColor: danger ? "#ae3838" : green },
+        quiet ? s.quiet : { backgroundColor: danger ? "#a3423c" : green },
         (pressed || disabled) && { opacity: 0.55 },
       ]}
     >
-      {icon && (
-        <Feather name={icon} size={17} color={quiet ? green : "white"} />
-      )}
+      {icon && <Feather name={icon} size={17} color={quiet ? ink : "white"} />}
       <Text
         style={{
-          color: quiet ? (danger ? "#ae3838" : green) : "white",
+          color: quiet ? (danger ? "#a3423c" : ink) : "white",
           fontWeight: "600",
         }}
       >
@@ -90,7 +95,7 @@ function Field({
         onChangeText={onChange}
         secureTextEntry={secure}
         keyboardType={numeric ? "number-pad" : "default"}
-        autoCapitalize="none"
+        autoCapitalize={label.startsWith("Họ") ? "words" : "none"}
         style={s.input}
       />
     </View>
@@ -232,8 +237,6 @@ export default function Home() {
     setEditor(true);
   }
   async function save() {
-    if (!/^[A-Za-z0-9_-]{2,20}$/.test(form.IDGV.trim()))
-      return setFormError("Mã giảng viên gồm 2–20 chữ, số, _ hoặc -.");
     if (form.Fullname.trim().length < 2)
       return setFormError("Nhập họ và tên ít nhất 2 ký tự.");
     if (!/^\d+$/.test(form.SumClass) || Number(form.SumClass) > 999)
@@ -246,7 +249,11 @@ export default function Home() {
         "/giang-vien" + (editing ? "/" + encodeURIComponent(editing) : ""),
         token,
         editing ? "PUT" : "POST",
-        { ...form, SumClass: Number(form.SumClass) },
+        {
+          Fullname: form.Fullname,
+          Image: form.Image,
+          SumClass: Number(form.SumClass),
+        },
       );
       setEditor(false);
       setNotice(editing ? "Đã cập nhật giảng viên." : "Đã thêm giảng viên.");
@@ -301,350 +308,416 @@ export default function Home() {
         <ActivityIndicator color={green} />
       </View>
     );
+  const totalClasses = rows.reduce((sum, row) => sum + row.SumClass, 0);
   return (
     <SafeAreaView style={s.root}>
       <StatusBar style="dark" />
-      <View style={s.top}>
-        <View style={s.brand}>
-          <View style={s.logo}>
-            <Feather name="book-open" size={22} color="white" />
-          </View>
-          <View>
-            <Text style={s.brandText}>QL Học Phần</Text>
-            <Text style={s.small}>CỔNG QUẢN TRỊ ĐÀO TẠO</Text>
-          </View>
-        </View>
-        {!!token && (
-          <Button
-            title={wide ? "Đăng xuất · admin" : "Đăng xuất"}
-            onPress={() => void logout()}
-            quiet
-            icon="log-out"
-          />
-        )}
-      </View>
       {!token ? (
-        <ScrollView
-          key="login"
-          contentContainerStyle={[
-            s.loginWrap,
-            wide && { flexDirection: "row" },
-          ]}
-        >
-          <View style={{ flex: 1, maxWidth: 510, gap: 24 }}>
-            <Text style={s.eyebrow}>KHÔNG GIAN QUẢN TRỊ</Text>
-            <Text style={[s.hero, { fontSize: wide ? 52 : 36 }]}>
-              Quản lý giảng viên.{"\n"}Kết nối tri thức.
-            </Text>
-            <Text style={s.subtitle}>
-              Một nơi để cập nhật hồ sơ, theo dõi số lớp và quản lý đội ngũ
-              giảng dạy.
-            </Text>
-            <View style={s.feature}>
-              <Feather name="users" size={24} color={green} />
-              <Text style={s.body}>Hồ sơ tập trung · Thông tin đồng bộ</Text>
-            </View>
-          </View>
-          <View style={s.loginCard}>
-            <Text style={s.title}>Chào mừng trở lại</Text>
-            <Text style={[s.subtitle, { marginBottom: 28 }]}>
-              Đăng nhập để quản lý giảng viên
-            </Text>
-            <Field
-              label="Tên đăng nhập"
-              value={username}
-              onChange={setUsername}
-            />
-            <Field
-              label="Mật khẩu"
-              value={password}
-              onChange={setPassword}
-              secure
-            />
-            {!!error && (
-              <Text accessibilityRole="alert" style={s.error}>
-                {error}
-              </Text>
-            )}
-            <Button
-              title={busy ? "Đang đăng nhập…" : "Đăng nhập"}
-              onPress={() => void login()}
-              disabled={busy || !username || !password}
-              icon="arrow-right"
-            />
-            <Text style={[s.small, { marginTop: 24, textAlign: "center" }]}>
-              Dành cho quản trị viên hệ thống
-            </Text>
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView key="dashboard" contentContainerStyle={s.content}>
-          <View
-            style={[s.heading, !wide && { alignItems: "flex-start", gap: 20 }]}
+        <View style={s.loginShell}>
+          <ScrollView
+            key="login"
+            contentContainerStyle={s.loginArea}
+            keyboardShouldPersistTaps="handled"
           >
-            <View>
-              <Text style={s.eyebrow}>QUẢN LÝ ĐÀO TẠO / GIẢNG VIÊN</Text>
-              <Text style={s.hero}>Đội ngũ giảng viên</Text>
-              <Text style={s.subtitle}>
-                Quản lý hồ sơ và phân bổ lớp học của bạn.
+            <View style={s.loginForm}>
+              {
+                <View style={s.mobileLoginBrand}>
+                  <View style={s.mark}>
+                    <Feather name="book-open" size={20} color="white" />
+                  </View>
+                  <Text style={s.mobileBrandText}>QL HỌC PHẦN</Text>
+                </View>
+              }
+              <Text style={s.sectionKicker}>TÀI KHOẢN QUẢN TRỊ</Text>
+              <Text style={s.loginTitle}>Đăng nhập</Text>
+              <Text style={s.muted}>
+                Nhập thông tin để vào danh sách giảng viên.
               </Text>
-            </View>
-            <Button
-              title="Thêm giảng viên"
-              icon="plus"
-              onPress={() => openEditor()}
-            />
-          </View>
-          <View style={s.stats}>
-            {[
-              ["Giảng viên", rows.length, "users"],
-              [
-                "Tổng số lớp",
-                rows.reduce((a, r) => a + r.SumClass, 0),
-                "layers",
-              ],
-              [
-                "Lớp / giảng viên",
-                rows.length
-                  ? (
-                      rows.reduce((a, r) => a + r.SumClass, 0) / rows.length
-                    ).toFixed(1)
-                  : "0",
-                "bar-chart-2",
-              ],
-            ].map(([label, value, icon]) => (
-              <View key={label} style={s.stat}>
-                <Feather name={icon as "users"} size={20} color={green} />
-                <Text style={s.statValue}>{value}</Text>
-                <Text style={s.small}>{label}</Text>
-              </View>
-            ))}
-          </View>
-          {!!notice && (
-            <Pressable onPress={() => setNotice("")}>
-              <Text accessibilityRole="alert" style={s.success}>
-                {notice} ×
-              </Text>
-            </Pressable>
-          )}
-          {!!error && (
-            <Text accessibilityRole="alert" style={s.error}>
-              {error}
-            </Text>
-          )}
-          <View style={s.panel}>
-            <View style={s.toolbar}>
-              <View style={s.search}>
-                <Feather name="search" size={18} color="#7a8983" />
-                <TextInput
-                  accessibilityLabel="Tìm giảng viên"
-                  placeholder="Tìm theo mã hoặc họ tên…"
-                  value={search}
-                  onChangeText={(v) => {
-                    setSearch(v);
-                    setPage(1);
-                  }}
-                  style={{ flex: 1, padding: 8, fontSize: 14 }}
-                />
-              </View>
-              <Button
-                title="Làm mới"
-                onPress={() => void load()}
-                quiet
-                icon="refresh-cw"
-                disabled={loading}
+              <View style={{ height: 36 }} />
+              <Field
+                label="Tên đăng nhập"
+                value={username}
+                onChange={setUsername}
               />
+              <Field
+                label="Mật khẩu"
+                value={password}
+                onChange={setPassword}
+                secure
+              />
+              {!!error && (
+                <Text accessibilityRole="alert" style={s.error}>
+                  {error}
+                </Text>
+              )}
+              <Button
+                title={busy ? "Đang đăng nhập…" : "Đăng nhập"}
+                onPress={() => void login()}
+                disabled={busy || !username || !password}
+                icon="arrow-right"
+              />
+              <View style={s.loginSupport}>
+                <Feather name="lock" size={14} color={muted} />
+                <Text style={s.caption}>Chỉ dành cho quản trị viên</Text>
+              </View>
             </View>
-            <View style={s.filters}>
-              <Text style={s.small}>Sắp xếp:</Text>
-              {[
-                ["IDGV", "Mã GV"],
-                ["Fullname", "Họ tên"],
-                ["SumClass", "Số lớp ↓"],
-              ].map(([key, label]) => (
+          </ScrollView>
+        </View>
+      ) : (
+        <View style={s.appShell}>
+          <View style={s.mainArea}>
+            {
+              <View style={s.mobileTop}>
+                <View style={s.mobileTopBrand}>
+                  <View style={s.mobileMark}>
+                    <Feather name="book-open" size={17} color="white" />
+                  </View>
+                  <Text style={s.mobileTopText}>QL HỌC PHẦN</Text>
+                </View>
                 <Pressable
-                  key={key}
                   accessibilityRole="button"
-                  onPress={() => {
-                    setSort(key);
-                    setPage(1);
-                  }}
-                  style={[
-                    s.chip,
-                    sort === key && { backgroundColor: "#dceee5" },
-                  ]}
+                  accessibilityLabel="Đăng xuất"
+                  onPress={() => void logout()}
+                  style={s.mobileLogout}
                 >
-                  <Text
-                    style={{
-                      color: green,
-                      fontWeight: sort === key ? "700" : "400",
-                    }}
-                  >
-                    {label}
+                  <Feather name="log-out" size={16} color={green} />
+                  <Text style={s.logoutLabel}>Đăng xuất</Text>
+                </Pressable>
+              </View>
+            }
+            <ScrollView
+              key="dashboard"
+              contentContainerStyle={[s.content, !wide && s.contentSmall]}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={s.pageHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.sectionKicker}>DANH SÁCH GIẢNG VIÊN</Text>
+                  <Text style={[s.pageTitle, !wide && { fontSize: 31 }]}>
+                    Giảng viên
+                  </Text>
+                  <Text style={s.summary}>
+                    {rows.length} giảng viên <Text style={s.summaryDot}>·</Text>{" "}
+                    {totalClasses} lớp đang quản lý
+                  </Text>
+                </View>
+                {wide && (
+                  <Button
+                    title="Thêm giảng viên"
+                    icon="plus"
+                    onPress={() => openEditor()}
+                  />
+                )}
+              </View>
+              {!!notice && (
+                <Pressable onPress={() => setNotice("")}>
+                  <Text accessibilityRole="alert" style={s.success}>
+                    {notice} ×
                   </Text>
                 </Pressable>
-              ))}
-              <Text style={s.small}>{filtered.length} kết quả</Text>
-            </View>
-            {loading ? (
-              <ActivityIndicator style={{ padding: 50 }} color={green} />
-            ) : visible.length === 0 ? (
-              <View style={{ padding: 48, alignItems: "center", gap: 14 }}>
-                <Feather name="inbox" size={36} color={green} />
-                <Text style={s.title}>
-                  {search ? "Không tìm thấy giảng viên" : "Chưa có giảng viên"}
+              )}
+              {!!error && (
+                <Text accessibilityRole="alert" style={s.error}>
+                  {error}
                 </Text>
-                <Text style={s.subtitle}>
-                  {search
-                    ? "Thử tìm bằng mã hoặc tên khác."
-                    : "Thêm hồ sơ đầu tiên để bắt đầu."}
-                </Text>
-              </View>
-            ) : (
-              visible.map((row) => (
-                <View
-                  key={row.IDGV}
-                  style={[s.row, !wide && { flexWrap: "wrap" }]}
-                >
+              )}
+              {!wide && (
+                <View style={s.mobileAdd}>
+                  <Button
+                    title="Thêm giảng viên"
+                    icon="plus"
+                    onPress={() => openEditor()}
+                  />
+                </View>
+              )}
+              <View style={s.listSurface}>
+                <View style={[s.toolbar, !wide && s.toolbarSmall]}>
+                  <View style={s.search}>
+                    <Feather name="search" size={18} color={muted} />
+                    <TextInput
+                      accessibilityLabel="Tìm giảng viên"
+                      placeholder="Tìm mã hoặc tên giảng viên"
+                      placeholderTextColor="#929da9"
+                      value={search}
+                      onChangeText={(v) => {
+                        setSearch(v);
+                        setPage(1);
+                      }}
+                      style={s.searchInput}
+                    />
+                    {!!search && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Xóa tìm kiếm"
+                        onPress={() => setSearch("")}
+                      >
+                        <Feather name="x" size={17} color={muted} />
+                      </Pressable>
+                    )}
+                  </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={"Xem " + row.Fullname}
-                    onPress={() => setDetail(row)}
-                    style={s.person}
+                    accessibilityLabel="Làm mới"
+                    onPress={() => void load()}
+                    disabled={loading}
+                    style={s.refresh}
                   >
-                    <Image source={{ uri: row.Image }} style={s.avatar} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.personName}>{row.Fullname}</Text>
-                      <Text style={s.small}>{row.IDGV}</Text>
-                    </View>
+                    <Feather name="refresh-cw" size={17} color={ink} />
+                    {wide && <Text style={s.refreshText}>Làm mới</Text>}
                   </Pressable>
-                  <View style={s.classBadge}>
-                    <Feather name="layers" size={14} color={green} />
-                    <Text style={{ color: green }}>{row.SumClass} lớp</Text>
+                </View>
+                <View style={[s.filterBar, !wide && { paddingHorizontal: 16 }]}>
+                  <Text style={s.filterLabel}>SẮP XẾP</Text>
+                  {(
+                    [
+                      ["IDGV", "Mã"],
+                      ["Fullname", "Tên"],
+                      ["SumClass", "Số lớp ↓"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <Pressable
+                      key={key}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setSort(key);
+                        setPage(1);
+                      }}
+                      style={[s.sortOption, sort === key && s.sortSelected]}
+                    >
+                      <Text
+                        style={[s.sortText, sort === key && s.sortTextSelected]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <Text style={s.resultCount}>{filtered.length} kết quả</Text>
+                </View>
+                {wide && (
+                  <View style={s.tableHead}>
+                    <Text style={[s.columnLabel, { flex: 1 }]}>GIẢNG VIÊN</Text>
+                    <Text style={[s.columnLabel, { width: 145 }]}>
+                      MÃ GIẢNG VIÊN
+                    </Text>
+                    <Text style={[s.columnLabel, { width: 112 }]}>SỐ LỚP</Text>
+                    <Text
+                      style={[
+                        s.columnLabel,
+                        { width: 142, textAlign: "right" },
+                      ]}
+                    >
+                      THAO TÁC
+                    </Text>
                   </View>
-                  <View style={s.actions}>
+                )}
+                {loading ? (
+                  <ActivityIndicator style={{ padding: 60 }} color={green} />
+                ) : visible.length === 0 ? (
+                  <View style={s.emptyState}>
+                    <Text style={s.emptyNumber}>00</Text>
+                    <Text style={s.emptyTitle}>
+                      {search
+                        ? "Không tìm thấy giảng viên"
+                        : "Chưa có giảng viên"}
+                    </Text>
+                    <Text style={s.muted}>
+                      {search
+                        ? "Thử một mã hoặc tên khác."
+                        : "Thêm hồ sơ đầu tiên để bắt đầu."}
+                    </Text>
+                  </View>
+                ) : (
+                  visible.map((row, index) => (
+                    <View
+                      key={row.IDGV}
+                      style={[s.record, !wide && s.recordSmall]}
+                    >
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={"Xem " + row.Fullname}
+                        onPress={() => setDetail(row)}
+                        style={s.recordPerson}
+                      >
+                        <Image source={{ uri: row.Image }} style={s.avatar} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.personName} numberOfLines={1}>
+                            {row.Fullname}
+                          </Text>
+                          {!wide && (
+                            <Text style={s.personCode}>
+                              {row.IDGV} · {row.SumClass} lớp
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
+                      {wide ? (
+                        <>
+                          <Text style={s.codeCell}>{row.IDGV}</Text>
+                          <Text style={s.classCell}>{row.SumClass} lớp</Text>
+                        </>
+                      ) : null}
+                      <View style={[s.rowActions, !wide && s.rowActionsSmall]}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Sửa"
+                          onPress={() => openEditor(row)}
+                          style={s.actionButton}
+                        >
+                          <Feather name="edit-2" size={15} color={ink} />
+                          {wide && <Text style={s.actionText}>Sửa</Text>}
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Xóa"
+                          onPress={() => setRemoving(row)}
+                          style={s.actionButton}
+                        >
+                          <Feather name="trash-2" size={15} color="#a8514b" />
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))
+                )}
+                <View style={s.listFooter}>
+                  <Text style={s.caption}>
+                    Trang {current} / {pages}
+                  </Text>
+                  <View style={s.paging}>
                     <Button
-                      title="Sửa"
+                      title="Trước"
                       quiet
-                      icon="edit-2"
-                      onPress={() => openEditor(row)}
+                      disabled={current <= 1}
+                      onPress={() => setPage(current - 1)}
                     />
                     <Button
-                      title="Xóa"
+                      title="Sau"
                       quiet
-                      danger
-                      icon="trash-2"
-                      onPress={() => setRemoving(row)}
+                      disabled={current >= pages}
+                      onPress={() => setPage(current + 1)}
                     />
                   </View>
                 </View>
-              ))
-            )}
-            <View style={s.footer}>
-              <Text style={s.small}>
-                Trang {current} / {pages}
-              </Text>
-              <View style={s.actions}>
-                <Button
-                  title="Trước"
-                  quiet
-                  disabled={current <= 1}
-                  onPress={() => setPage(current - 1)}
-                />
-                <Button
-                  title="Sau"
-                  quiet
-                  disabled={current >= pages}
-                  onPress={() => setPage(current + 1)}
-                />
               </View>
-            </View>
+            </ScrollView>
           </View>
-          <Text style={[s.small, { textAlign: "center", marginTop: 24 }]}>
-            QL Học Phần · Không gian quản lý giảng dạy
-          </Text>
-        </ScrollView>
+        </View>
       )}
       <Modal
         visible={editor}
-        animationType="slide"
-        transparent
+        animationType={Platform.OS === "web" ? "fade" : "slide"}
+        transparent={Platform.OS === "web"}
         onRequestClose={() => {
           if (!busy) setEditor(false);
         }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={s.overlay}
+          style={Platform.OS === "web" ? s.overlay : s.nativeEditorOverlay}
         >
-          <ScrollView contentContainerStyle={s.modalScroll}>
-            <View style={s.modal}>
-              <Text style={s.title}>
-                {editing ? "Chỉnh sửa giảng viên" : "Thêm giảng viên mới"}
-              </Text>
-              <Text style={[s.subtitle, { marginBottom: 24 }]}>
-                Điền đầy đủ thông tin hồ sơ bên dưới.
-              </Text>
-              <View style={{ alignItems: "center", gap: 12, marginBottom: 24 }}>
-                {form.Image ? (
-                  <Image source={{ uri: form.Image }} style={s.preview} />
-                ) : (
-                  <View style={[s.preview, s.center]}>
-                    <Feather name="user" size={44} color={green} />
-                  </View>
-                )}
-                <View style={s.actions}>
-                  <Button
-                    title="Chọn ảnh"
-                    quiet
-                    icon="image"
-                    onPress={() => void pick()}
-                  />
-                  {Platform.OS !== "web" && (
-                    <Button
-                      title="Chụp ảnh"
-                      quiet
-                      icon="camera"
-                      onPress={() => void pick(true)}
-                    />
-                  )}
+          <ScrollView
+            contentContainerStyle={
+              Platform.OS === "web" ? s.modalScroll : s.nativeModalScroll
+            }
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          >
+            <View
+              style={
+                Platform.OS === "web"
+                  ? [s.modal, wide && s.modalWide]
+                  : s.nativeEditor
+              }
+            >
+              <View style={s.modalHeader}>
+                <View>
+                  <Text style={s.sectionKicker}>HỒ SƠ GIẢNG VIÊN</Text>
+                  <Text style={s.modalTitle}>
+                    {editing ? "Chỉnh sửa giảng viên" : "Thêm giảng viên"}
+                  </Text>
                 </View>
-                <Text style={s.small}>PNG, JPEG, WebP · tối đa 2 MB</Text>
-              </View>
-              <Field
-                label="Mã giảng viên (IDGV)"
-                value={form.IDGV}
-                onChange={(v) => setForm({ ...form, IDGV: v })}
-              />
-              <Field
-                label="Họ và tên (Fullname)"
-                value={form.Fullname}
-                onChange={(v) => setForm({ ...form, Fullname: v })}
-              />
-              <Field
-                label="Tổng số lớp (SumClass)"
-                value={form.SumClass}
-                onChange={(v) => setForm({ ...form, SumClass: v })}
-                numeric
-              />
-              {!!formError && (
-                <Text accessibilityRole="alert" style={s.error}>
-                  {formError}
-                </Text>
-              )}
-              <View style={[s.actions, { justifyContent: "flex-end" }]}>
-                <Button
-                  title="Hủy"
-                  quiet
-                  disabled={busy}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Đóng biểu mẫu"
                   onPress={() => setEditor(false)}
+                  style={s.closeButton}
+                >
+                  <Feather name="x" size={20} color={ink} />
+                </Pressable>
+              </View>
+              <View style={s.formBody}>
+                <Text style={s.formSection}>Thông tin cơ bản</Text>
+                <View style={s.generatedCode}>
+                  <Text style={s.label}>Mã giảng viên</Text>
+                  <Text style={s.generatedCodeValue}>
+                    {editing || "Tự tạo sau khi lưu"}
+                  </Text>
+                </View>
+                <Field
+                  label="Họ và tên (Fullname)"
+                  value={form.Fullname}
+                  onChange={(v) =>
+                    setForm((current) => ({ ...current, Fullname: v }))
+                  }
                 />
-                <Button
-                  title={busy ? "Đang lưu…" : "Lưu giảng viên"}
-                  onPress={() => void save()}
-                  disabled={busy}
-                  icon="check"
+                <Field
+                  label="Tổng số lớp (SumClass)"
+                  value={form.SumClass}
+                  onChange={(v) =>
+                    setForm((current) => ({ ...current, SumClass: v }))
+                  }
+                  numeric
                 />
+                <View style={s.formDivider} />
+                <Text style={s.formSection}>Ảnh giảng viên</Text>
+                <View style={s.photoRow}>
+                  {form.Image ? (
+                    <Image source={{ uri: form.Image }} style={s.preview} />
+                  ) : (
+                    <View style={[s.preview, s.previewEmpty]}>
+                      <Feather name="camera" size={25} color={muted} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <View style={s.photoActions}>
+                      <Button
+                        title="Chọn ảnh"
+                        quiet
+                        icon="upload"
+                        onPress={() => void pick()}
+                      />
+                      {Platform.OS !== "web" && (
+                        <Button
+                          title="Chụp ảnh"
+                          quiet
+                          icon="camera"
+                          onPress={() => void pick(true)}
+                        />
+                      )}
+                    </View>
+                    <Text style={s.caption}>
+                      PNG, JPEG hoặc WebP · tối đa 2 MB
+                    </Text>
+                  </View>
+                </View>
+                {!!formError && (
+                  <Text accessibilityRole="alert" style={s.error}>
+                    {formError}
+                  </Text>
+                )}
+                <View style={s.formFooter}>
+                  <Button
+                    title="Hủy"
+                    quiet
+                    disabled={busy}
+                    onPress={() => setEditor(false)}
+                  />
+                  <Button
+                    title={busy ? "Đang lưu…" : "Lưu giảng viên"}
+                    disabled={busy}
+                    onPress={() => void save()}
+                    icon="check"
+                  />
+                </View>
               </View>
             </View>
           </ScrollView>
@@ -657,15 +730,31 @@ export default function Home() {
         onRequestClose={() => setDetail(null)}
       >
         <View style={s.overlay}>
-          <View style={s.modal}>
+          <View style={[s.modal, s.detailModal]}>
             {detail && (
-              <View style={{ alignItems: "center", gap: 20 }}>
-                <Image source={{ uri: detail.Image }} style={s.preview} />
-                <Text style={s.title}>{detail.Fullname}</Text>
-                <Text style={s.subtitle}>Mã giảng viên: {detail.IDGV}</Text>
-                <Text style={s.statValue}>{detail.SumClass} lớp</Text>
+              <>
+                <View style={s.modalHeader}>
+                  <Text style={s.sectionKicker}>HỒ SƠ GIẢNG VIÊN</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Đóng hồ sơ"
+                    onPress={() => setDetail(null)}
+                  >
+                    <Feather name="x" size={20} color={ink} />
+                  </Pressable>
+                </View>
+                <Image source={{ uri: detail.Image }} style={s.detailImage} />
+                <Text style={s.detailName}>{detail.Fullname}</Text>
+                <View style={s.detailLine}>
+                  <Text style={s.detailLabel}>Mã giảng viên</Text>
+                  <Text style={s.detailValue}>{detail.IDGV}</Text>
+                </View>
+                <View style={s.detailLine}>
+                  <Text style={s.detailLabel}>Số lớp phụ trách</Text>
+                  <Text style={s.detailValue}>{detail.SumClass}</Text>
+                </View>
                 <Button title="Đóng" quiet onPress={() => setDetail(null)} />
-              </View>
+              </>
             )}
           </View>
         </View>
@@ -679,13 +768,16 @@ export default function Home() {
         }}
       >
         <View style={s.overlay}>
-          <View style={s.modal}>
-            <Text style={s.title}>Xóa giảng viên?</Text>
-            <Text style={[s.subtitle, { marginVertical: 20 }]}>
+          <View style={[s.modal, s.confirmModal]}>
+            <View style={s.warningIcon}>
+              <Feather name="trash-2" size={20} color="#a8514b" />
+            </View>
+            <Text style={s.confirmTitle}>Xóa giảng viên?</Text>
+            <Text style={s.confirmBody}>
               Bạn sẽ xóa hồ sơ {removing?.Fullname} ({removing?.IDGV}). Thao tác
               này không thể hoàn tác.
             </Text>
-            <View style={s.actions}>
+            <View style={s.formFooter}>
               <Button
                 title="Giữ lại"
                 quiet
@@ -705,230 +797,414 @@ export default function Home() {
     </SafeAreaView>
   );
 }
+const ink = "#202a43",
+  muted = "#68758c",
+  green = "#355acb",
+  line = "#dfe5f1";
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4f6f3" },
+  root: { flex: 1, backgroundColor: "#f5f7fb" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  top: {
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderColor: "#e3e9e4",
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  brand: { flexDirection: "row", gap: 12, alignItems: "center" },
-  logo: {
-    width: 44,
-    height: 44,
-    backgroundColor: green,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brandText: { fontSize: 18, fontWeight: "800", color: "#18392e" },
-  small: { fontSize: 12, color: "#6d7b74", lineHeight: 20 },
-  loginWrap: {
-    flexGrow: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 28,
-    gap: 64,
-  },
-  loginCard: {
-    width: "100%",
-    maxWidth: 430,
-    padding: 32,
-    backgroundColor: "white",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#e3e9e4",
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 2,
-    color: green,
-    marginBottom: 14,
-  },
-  hero: {
-    fontSize: 34,
-    fontWeight: "800",
-    letterSpacing: -1,
-    color: "#173b2f",
-    marginBottom: 12,
-  },
-  subtitle: { fontSize: 15, lineHeight: 24, color: "#6b7c72" },
-  feature: {
-    flexDirection: "row",
-    gap: 14,
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#e7efe8",
-    borderRadius: 16,
-  },
-  body: { fontSize: 14, color: green, flexShrink: 1 },
-  title: { fontSize: 23, fontWeight: "700", color: "#173b2f", marginBottom: 8 },
-  label: { fontSize: 13, fontWeight: "600", color: "#344f43" },
-  input: {
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#d7e0d9",
-    borderRadius: 10,
-    fontSize: 16,
-    backgroundColor: "#fcfdfb",
-    color: "#18392e",
-  },
   button: {
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderRadius: 10,
+    minHeight: 42,
+    paddingHorizontal: 17,
+    paddingVertical: 10,
+    borderRadius: 7,
     flexDirection: "row",
-    gap: 8,
+    gap: 9,
     alignItems: "center",
     justifyContent: "center",
   },
-  quiet: { backgroundColor: "#f0f5f0" },
+  quiet: { backgroundColor: "#edf2ff" },
+  label: { fontSize: 13, fontWeight: "600", color: ink, marginBottom: 8 },
+  input: {
+    height: 46,
+    borderWidth: 1,
+    borderColor: "#d3dceb",
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    fontSize: 15,
+    color: ink,
+    fontFamily: "PlusJakartaSans",
+    paddingHorizontal: 13,
+  },
+  loginShell: { flex: 1, backgroundColor: "#fff" },
+  mark: {
+    width: 38,
+    height: 38,
+    backgroundColor: green,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 5,
+  },
+  loginArea: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+    paddingVertical: 50,
+  },
+  loginForm: { width: "100%", maxWidth: 400 },
+  mobileLoginBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 42,
+  },
+  mobileBrandText: {
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: ink,
+  },
+  sectionKicker: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.8,
+    color: green,
+    marginBottom: 10,
+  },
+  loginTitle: { fontSize: 34, fontWeight: "700", color: ink, marginBottom: 8 },
+  muted: { fontSize: 14, color: muted, lineHeight: 22 },
+  caption: { fontSize: 12, color: muted, lineHeight: 18 },
+  loginSupport: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    marginTop: 28,
+  },
+  appShell: { flex: 1, flexDirection: "row" },
+  mainArea: { flex: 1 },
+  mobileTop: {
+    height: 60,
+    backgroundColor: "white",
+    borderBottomWidth: 2,
+    borderBottomColor: green,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  mobileTopBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  mobileMark: {
+    backgroundColor: green,
+    width: 30,
+    height: 30,
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileTopText: {
+    fontSize: 13,
+    color: ink,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  mobileLogout: {
+    minHeight: 36,
+    paddingHorizontal: 11,
+    borderWidth: 1,
+    borderColor: "#cdd8fa",
+    borderRadius: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "#f4f6ff",
+  },
+  logoutLabel: { color: green, fontSize: 12, fontWeight: "700" },
   content: {
     width: "100%",
-    maxWidth: 1250,
+    maxWidth: 1120,
     alignSelf: "center",
-    padding: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 42,
+    paddingTop: 44,
+    paddingBottom: 60,
   },
-  heading: {
+  contentSmall: { paddingHorizontal: 16, paddingTop: 27 },
+  pageHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginVertical: 20,
+    gap: 15,
+    marginBottom: 31,
   },
-  stats: { flexDirection: "row", gap: 12, marginVertical: 20 },
-  stat: {
-    flex: 1,
+  pageTitle: {
+    fontSize: 34,
+    fontWeight: "700",
+    color: ink,
+    marginBottom: 9,
+    letterSpacing: -0.7,
+  },
+  summary: { color: muted, fontSize: 14 },
+  summaryDot: { color: "#e69750" },
+  mobileAdd: { marginBottom: 19, alignSelf: "flex-start" },
+  listSurface: {
     backgroundColor: "white",
     borderWidth: 1,
-    borderColor: "#e3e9e4",
-    padding: 18,
-    borderRadius: 16,
-    gap: 10,
-  },
-  statValue: { fontSize: 30, fontWeight: "700", color: green },
-  panel: {
-    backgroundColor: "white",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#e3e9e4",
+    borderColor: line,
+    borderRadius: 8,
     overflow: "hidden",
-    marginTop: 10,
   },
-  toolbar: { flexDirection: "row", padding: 18, gap: 12 },
+  toolbar: { padding: 17, flexDirection: "row", gap: 12 },
+  toolbarSmall: { padding: 12 },
   search: {
     flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderColor: "#d3dceb",
+    borderRadius: 6,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f4f6f3",
-    borderRadius: 10,
+    gap: 10,
     paddingHorizontal: 12,
   },
-  filters: {
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: ink,
+    fontFamily: "PlusJakartaSans",
+    padding: 0,
+  },
+  refresh: {
+    height: 42,
+    minWidth: 42,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: line,
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  refreshText: { fontSize: 13, color: ink, fontWeight: "600" },
+  filterBar: {
     paddingHorizontal: 18,
-    paddingBottom: 18,
+    paddingBottom: 15,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
     alignItems: "center",
+    gap: 8,
   },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: "#f5f6f4",
+  filterLabel: {
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontWeight: "700",
+    color: muted,
+    marginRight: 5,
   },
-  row: {
+  sortOption: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 4 },
+  sortSelected: { backgroundColor: "#e8eeff" },
+  sortText: { fontSize: 12, color: muted },
+  sortTextSelected: { color: green, fontWeight: "700" },
+  resultCount: { marginLeft: "auto", fontSize: 12, color: muted },
+  tableHead: {
+    height: 38,
+    paddingHorizontal: 20,
+    backgroundColor: "#f4f6f7",
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    gap: 18,
+  },
+  columnLabel: {
+    fontSize: 10,
+    color: "#7b8a94",
+    letterSpacing: 1,
+    fontWeight: "700",
+  },
+  record: {
+    minHeight: 74,
+    paddingHorizontal: 20,
     borderTopWidth: 1,
-    borderColor: "#edf0eb",
-  },
-  person: {
-    flex: 1,
-    minWidth: 210,
+    borderColor: line,
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+  },
+  recordSmall: { minHeight: 78, paddingHorizontal: 14 },
+  recordPerson: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 13,
+    minWidth: 0,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#e5eee8",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#e4ebe8",
   },
-  personName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#223e31",
-    marginBottom: 4,
-  },
-  classBadge: {
+  personName: { fontSize: 14, fontWeight: "600", color: ink },
+  personCode: { fontSize: 12, color: muted, marginTop: 4 },
+  codeCell: { width: 145, color: muted, fontSize: 13 },
+  classCell: { width: 112, color: ink, fontSize: 13 },
+  rowActions: {
+    width: 142,
     flexDirection: "row",
-    gap: 8,
-    padding: 9,
-    backgroundColor: "#edf5ef",
-    borderRadius: 8,
+    justifyContent: "flex-end",
+    gap: 6,
   },
-  actions: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
-  footer: {
-    padding: 16,
+  rowActionsSmall: { width: 82 },
+  actionButton: {
+    minWidth: 32,
+    height: 32,
+    borderWidth: 1,
+    borderColor: line,
+    borderRadius: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  actionText: { fontSize: 12, color: ink },
+  listFooter: {
+    minHeight: 61,
     borderTopWidth: 1,
-    borderColor: "#edf0eb",
+    borderColor: line,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 17,
   },
-  error: {
-    backgroundColor: "#fff0ee",
-    color: "#a33131",
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 14,
-    lineHeight: 22,
-  },
-  success: {
-    backgroundColor: "#dfefe3",
-    color: green,
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 14,
-  },
+  paging: { flexDirection: "row", gap: 7 },
+  emptyState: { padding: 55, alignItems: "center", gap: 9 },
+  emptyNumber: { fontSize: 40, fontWeight: "300", color: "#bdcbd1" },
+  emptyTitle: { fontSize: 17, fontWeight: "600", color: ink },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(15,35,25,.48)",
+    backgroundColor: "rgba(16,31,42,.56)",
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
+    padding: 18,
   },
+  generatedCode: {
+    marginBottom: 18,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: line,
+    borderRadius: 6,
+    backgroundColor: "#f6f8f8",
+  },
+  generatedCodeValue: { color: ink, fontSize: 14 },
+  nativeEditorOverlay: { flex: 1, backgroundColor: "white" },
+  nativeModalScroll: { flexGrow: 1, paddingBottom: 40 },
+  nativeEditor: { width: "100%", backgroundColor: "white" },
   modalScroll: {
     flexGrow: 1,
     justifyContent: "center",
-    width: "100%",
     alignItems: "center",
+    width: "100%",
   },
   modal: {
     width: "100%",
     maxWidth: 520,
     backgroundColor: "white",
-    borderRadius: 22,
-    padding: 26,
+    borderRadius: 9,
+    overflow: "hidden",
+  },
+  modalWide: { maxWidth: 550, width: 550 },
+  modalHeader: {
+    paddingHorizontal: 25,
+    paddingTop: 23,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderColor: line,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  modalTitle: { fontSize: 22, fontWeight: "700", color: ink },
+  closeButton: { padding: 4 },
+  formBody: { padding: 25 },
+  formSection: {
+    color: ink,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  photoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 22,
   },
   preview: {
-    width: 112,
-    height: 112,
-    borderRadius: 28,
-    backgroundColor: "#e7efe8",
-    flex: undefined,
+    width: 76,
+    height: 76,
+    borderRadius: 6,
+    backgroundColor: "#eef2f3",
+  },
+  previewEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#dbe2e6",
+    borderStyle: "dashed",
+  },
+  photoActions: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  formDivider: { height: 1, backgroundColor: line, marginBottom: 22 },
+  formFooter: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 9,
+    marginTop: 8,
+  },
+  detailModal: { paddingBottom: 24 },
+  detailImage: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    alignSelf: "center",
+    marginTop: 23,
+    marginBottom: 12,
+  },
+  detailName: {
+    fontSize: 21,
+    fontWeight: "700",
+    color: ink,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  detailLine: {
+    marginHorizontal: 25,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderColor: line,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  detailLabel: { color: muted, fontSize: 13 },
+  detailValue: { color: ink, fontSize: 13, fontWeight: "600" },
+  confirmModal: { padding: 25 },
+  warningIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#f8ecea",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  confirmTitle: {
+    fontSize: 21,
+    fontWeight: "700",
+    color: ink,
+    marginBottom: 10,
+  },
+  confirmBody: { fontSize: 14, lineHeight: 22, color: muted, marginBottom: 20 },
+  error: {
+    color: "#a3423c",
+    backgroundColor: "#fff2f0",
+    padding: 12,
+    borderRadius: 5,
+    marginBottom: 14,
+    fontSize: 13,
+  },
+  success: {
+    color: green,
+    backgroundColor: "#eaf5f2",
+    padding: 12,
+    borderRadius: 5,
+    marginBottom: 14,
+    fontSize: 13,
   },
 });

@@ -8,9 +8,9 @@ const client = await new MongoClient(
   process.env.MONGODB_URI || "mongodb://127.0.0.1:27028",
 ).connect();
 const db = client.db("QLHocPhan_test_" + Date.now());
-const c = db.collection("GiangVien");
-await c.createIndex({ IDGV: 1 }, { unique: true });
-const server = createApp(c, {
+const collection = db.collection("GiangVien");
+await collection.createIndex({ IDGV: 1 }, { unique: true });
+const server = createApp(collection, {
   username: "admin",
   passwordHash: await bcrypt.hash("Test@123456", 4),
   secret: "test-secret-at-least-thirty-two-characters",
@@ -18,15 +18,15 @@ const server = createApp(c, {
 }).listen(0);
 const base = `http://127.0.0.1:${server.address().port}/api`;
 let token;
-const sample = JSON.parse(
+const { IDGV, ...sample } = JSON.parse(
   await readFile(new URL("../../database/GiangVien.json", import.meta.url)),
 )[0];
-async function call(path, method = "GET", body, auth = true) {
+async function call(path, method = "GET", body) {
   return fetch(base + path, {
     method,
     headers: {
       "Content-Type": "application/json",
-      ...(auth && token ? { Authorization: "Bearer " + token } : {}),
+      ...(token ? { Authorization: "Bearer " + token } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -36,7 +36,7 @@ after(async () => {
   await client.close();
   server.close();
 });
-test("Đăng nhập, quyền truy cập, CRUD MongoDB và ràng buộc dữ liệu", async () => {
+test("Đăng nhập, mã tự sinh và CRUD MongoDB", async () => {
   assert.equal((await call("/giang-vien")).status, 401);
   assert.equal(
     (
@@ -53,18 +53,39 @@ test("Đăng nhập, quyền truy cập, CRUD MongoDB và ràng buộc dữ li�
   });
   assert.equal(login.status, 200);
   token = (await login.json()).token;
-  assert.equal((await call("/giang-vien", "POST", sample)).status, 201);
-  assert.equal((await call("/giang-vien", "POST", sample)).status, 409);
   for (const invalid of [
-    { ...sample, IDGV: "OTHER", SumClass: -1 },
+    { ...sample, SumClass: -1 },
     { ...sample, SumClass: 1.5 },
     { ...sample, Image: "data:image/png;base64,YWJj" },
     { ...sample, extra: 1 },
-    { ...sample, IDGV: "" },
+    { ...sample, IDGV: "MANUAL" },
   ])
     assert.equal((await call("/giang-vien", "POST", invalid)).status, 400);
+  const first = await call("/giang-vien", "POST", sample);
+  assert.equal(first.status, 201);
+  const firstTeacher = await first.json();
+  assert.equal(firstTeacher.IDGV, "GV001");
+  assert.deepEqual(Object.keys(firstTeacher).sort(), [
+    "Fullname",
+    "IDGV",
+    "Image",
+    "SumClass",
+  ]);
+  const parallel = await Promise.all([
+    call("/giang-vien", "POST", { ...sample, Fullname: "Giảng viên Hai" }),
+    call("/giang-vien", "POST", { ...sample, Fullname: "Giảng viên Ba" }),
+  ]);
+  assert.deepEqual(
+    parallel.map((r) => r.status),
+    [201, 201],
+  );
+  assert.deepEqual(
+    (await collection.find({}, { projection: { IDGV: 1, _id: 0 } }).toArray())
+      .map((r) => r.IDGV)
+      .sort(),
+    ["GV001", "GV002", "GV003"],
+  );
   const data = await (await call("/giang-vien")).json();
-  assert.equal(data.length, 1);
   assert.deepEqual(Object.keys(data[0]).sort(), [
     "Fullname",
     "IDGV",
@@ -72,19 +93,17 @@ test("Đăng nhập, quyền truy cập, CRUD MongoDB và ràng buộc dữ li�
     "SumClass",
   ]);
   const update = { ...sample, Fullname: "Nguyễn Kiểm Thử", SumClass: 25 };
+  assert.equal((await call("/giang-vien/GV001", "PUT", update)).status, 200);
+  assert.equal((await collection.findOne({ IDGV: "GV001" })).SumClass, 25);
   assert.equal(
-    (await call("/giang-vien/" + sample.IDGV, "PUT", update)).status,
-    200,
+    (await call("/giang-vien/GV001", "PUT", { ...update, IDGV: "OTHER" }))
+      .status,
+    400,
   );
-  assert.equal((await c.findOne({ IDGV: sample.IDGV })).SumClass, 25);
   assert.equal(
     (await (await call("/giang-vien?q=Ki%E1%BB%83m")).json()).length,
     1,
   );
-  assert.equal(
-    (await call("/giang-vien/" + sample.IDGV, "DELETE")).status,
-    204,
-  );
-  assert.equal(await c.countDocuments(), 0);
+  assert.equal((await call("/giang-vien/GV001", "DELETE")).status, 204);
   assert.equal((await call("/giang-vien/missing", "DELETE")).status, 404);
 });

@@ -2,11 +2,14 @@ const { test, expect } = require("@playwright/test");
 test("Demo: đăng nhập, thêm ảnh, sửa, tìm kiếm, xem chi tiết và xóa", async ({
   page,
 }) => {
-  const errors=[]; page.on("pageerror", e=>errors.push(e.message));
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
-  await expect(page.getByText("Chào mừng trở lại")).toBeVisible();
+  await expect(
+    page.getByText("Nhập thông tin để vào danh sách giảng viên."),
+  ).toBeVisible();
   await page.screenshot({
-    path: "docs/screenshots/01-login.png",
+    path: "test-results/01-login.png",
     fullPage: true,
   });
   await page.getByLabel("Tên đăng nhập", { exact: true }).fill("admin");
@@ -21,7 +24,7 @@ test("Demo: đăng nhập, thêm ảnh, sửa, tìm kiếm, xem chi tiết và x
     page.getByText("Nguyễn Minh Anh", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: "docs/screenshots/02-dashboard.png",
+    path: "test-results/02-dashboard.png",
     fullPage: true,
   });
   await page
@@ -30,10 +33,8 @@ test("Demo: đăng nhập, thêm ảnh, sửa, tìm kiếm, xem chi tiết và x
   await page
     .getByRole("button", { name: "Lưu giảng viên", exact: true })
     .click();
-  await expect(
-    page.getByText("Mã giảng viên gồm 2–20 chữ, số, _ hoặc -."),
-  ).toBeVisible();
-  await page.getByLabel("Mã giảng viên (IDGV)", { exact: true }).fill("GVTEST");
+  await expect(page.getByText("Nhập họ và tên ít nhất 2 ký tự.")).toBeVisible();
+  await expect(page.getByText("Tự tạo sau khi lưu")).toBeVisible();
   await page
     .getByLabel("Họ và tên (Fullname)", { exact: true })
     .fill("Nguyễn Demo Expo");
@@ -42,12 +43,19 @@ test("Demo: đăng nhập, thêm ảnh, sửa, tìm kiếm, xem chi tiết và x
   await page.getByRole("button", { name: "Chọn ảnh", exact: true }).click();
   await (await chooser).setFiles("docs/sample-avatar.png");
   await page.screenshot({
-    path: "docs/screenshots/03-add.png",
+    path: "test-results/03-add.png",
     fullPage: true,
   });
+  const createdResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/giang-vien") &&
+      response.request().method() === "POST",
+  );
   await page
     .getByRole("button", { name: "Lưu giảng viên", exact: true })
     .click();
+  const createdId = (await (await createdResponse).json()).IDGV;
+  expect(createdId).toMatch(/^GV\d+$/);
   await expect(
     page.getByText("Đã thêm giảng viên.", { exact: false }),
   ).toBeVisible();
@@ -62,23 +70,23 @@ test("Demo: đăng nhập, thêm ảnh, sửa, tìm kiếm, xem chi tiết và x
     .click();
   await expect(page.getByText("15 lớp", { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByLabel("Tìm giảng viên", { exact: true }).fill("GVTEST");
+  await page.getByLabel("Tìm giảng viên", { exact: true }).fill(createdId);
   await expect(page.getByText("15 lớp", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Xem Nguyễn Demo Expo", exact: true })
     .click();
   await page.screenshot({
-    path: "docs/screenshots/04-detail.png",
+    path: "test-results/04-detail.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "Đóng", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByLabel("Tìm giảng viên", { exact: true }).fill("");
   await page.screenshot({
-    path: "docs/screenshots/05-mobile-web.png",
+    path: "test-results/05-mobile-web.png",
     fullPage: true,
   });
-  await page.getByLabel("Tìm giảng viên", { exact: true }).fill("GVTEST");
+  await page.getByLabel("Tìm giảng viên", { exact: true }).fill(createdId);
   await page.getByRole("button", { name: "Xóa", exact: true }).click();
   await page.getByRole("button", { name: "Giữ lại", exact: true }).click();
   await expect(
@@ -88,6 +96,8 @@ test("Demo: đăng nhập, thêm ảnh, sửa, tìm kiếm, xem chi tiết và x
   await page.getByRole("button", { name: "Xác nhận xóa", exact: true }).click();
   await expect(page.getByText("Không tìm thấy giảng viên")).toBeVisible();
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
-  await expect(page.getByText("Chào mừng trở lại")).toBeVisible();
+  await expect(
+    page.getByText("Nhập thông tin để vào danh sách giảng viên."),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });

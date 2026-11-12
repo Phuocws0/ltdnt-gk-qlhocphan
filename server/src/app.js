@@ -26,18 +26,23 @@ const photo = z
             b.toString("ascii", 8, 12) === "WEBP")
     );
   }, "Ảnh phải là PNG/JPEG/WebP hợp lệ, tối đa 2 MB.");
-const schema = z
+const teacherInput = z
   .object({
-    IDGV: z
-      .string()
-      .trim()
-      .toUpperCase()
-      .regex(/^[A-Z0-9_-]{2,20}$/, "Mã gồm 2–20 chữ, số, _ hoặc -."),
     Fullname: z.string().trim().min(2).max(100),
     Image: photo,
     SumClass: z.number().int().min(0).max(999),
   })
   .strict();
+async function nextTeacherId(collection) {
+  const existing = await collection
+    .find({ IDGV: /^GV\d+$/ }, { projection: { IDGV: 1, _id: 0 } })
+    .toArray();
+  const max = existing.reduce(
+    (value, row) => Math.max(value, Number(row.IDGV.slice(2))),
+    0,
+  );
+  return `GV${String(max + 1).padStart(3, "0")}`;
+}
 export function createApp(collection, config) {
   const app = express();
   app.use(helmet());
@@ -99,11 +104,9 @@ export function createApp(collection, config) {
       if (claims.role !== "admin") throw Error();
       next();
     } catch {
-      res
-        .status(401)
-        .json({
-          message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
-        });
+      res.status(401).json({
+        message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      });
     }
   });
   app.get("/api/giang-vien", async (req, res, next) => {
@@ -135,20 +138,33 @@ export function createApp(collection, config) {
   });
   app.post("/api/giang-vien", async (req, res, next) => {
     try {
-      const data = schema.parse(req.body);
-      await collection.insertOne({ ...data });
-      res.status(201).json(data);
+      const input = teacherInput.parse(req.body);
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const data = { IDGV: await nextTeacherId(collection), ...input };
+        try {
+          await collection.insertOne({ ...data });
+          return res.status(201).json(data);
+        } catch (error) {
+          if (error.code !== 11000) throw error;
+        }
+      }
+      res
+        .status(503)
+        .json({ message: "Chưa cấp được mã giảng viên. Vui lòng thử lại." });
     } catch (e) {
       next(e);
     }
   });
   app.put("/api/giang-vien/:id", async (req, res, next) => {
     try {
-      const data = schema.parse(req.body);
-      const r = await collection.replaceOne({ IDGV: req.params.id }, data);
+      const input = teacherInput.parse(req.body);
+      const r = await collection.updateOne(
+        { IDGV: req.params.id },
+        { $set: input },
+      );
       if (!r.matchedCount)
         return res.status(404).json({ message: "Giảng viên không tồn tại." });
-      res.json(data);
+      res.json({ IDGV: req.params.id, ...input });
     } catch (e) {
       next(e);
     }
@@ -165,13 +181,11 @@ export function createApp(collection, config) {
   });
   app.use((err, req, res, next) => {
     if (err instanceof z.ZodError)
-      return res
-        .status(400)
-        .json({
-          message: err.issues
-            .map((i) => `${i.path.join(".")}: ${i.message}`)
-            .join("\n"),
-        });
+      return res.status(400).json({
+        message: err.issues
+          .map((i) => `${i.path.join(".")}: ${i.message}`)
+          .join("\n"),
+      });
     if (err.code === 11000)
       return res.status(409).json({ message: "Mã giảng viên đã tồn tại." });
     if (err.type === "entity.too.large")

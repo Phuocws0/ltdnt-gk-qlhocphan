@@ -84,6 +84,8 @@ export async function connect() {
 }
 ```
 
+<!-- pagebreak -->
+
 ## Bước 5 Lập trình đăng nhập quản trị
 
 Server so sánh mật khẩu với bản băm bcrypt trong cấu hình. Khi thông tin đúng, server cấp JWT có thời hạn 8 giờ. Sai tài khoản hoặc mật khẩu trả HTTP 401; API giới hạn số lần thử đăng nhập.
@@ -134,6 +136,8 @@ res.json(
     .toArray(),
 );
 ```
+
+<!-- pagebreak -->
 
 ## Bước 8 Thêm giảng viên và tự tạo mã
 
@@ -252,6 +256,18 @@ Sau khi sửa, hồ sơ hiển thị số lớp mới và ảnh trong màn hình
 
 ![Chi tiết giảng viên](screenshots/04-detail.png)
 
+### Tìm kiếm và sắp xếp
+
+Danh sách lọc theo mã giảng viên và sắp xếp số lớp giảm dần ngay trên giao diện.
+
+![Tìm kiếm và sắp xếp giảng viên](screenshots/10-search-sort.png)
+
+### Xác nhận xóa
+
+Hộp thoại hiển thị đúng tên và mã hồ sơ để người dùng kiểm tra trước khi xóa.
+
+![Hộp thoại xác nhận xóa](screenshots/11-delete-confirm.png)
+
 ### Giao diện web trên màn hình nhỏ
 
 Bố cục danh sách chuyển sang dạng gọn khi chiều rộng tương đương điện thoại.
@@ -281,9 +297,9 @@ Expo ImagePicker mở trình chọn ảnh của hệ điều hành.
 ## Tệp và liên kết bàn giao
 
 - Mã nguồn: https://github.com/Phuocws0/ltdnt-gk-qlhocphan
-- Báo cáo PDF: output/pdf/Bao-cao-QLHocPhan.pdf
+- Báo cáo Word: output/word/Bao-cao-QLHocPhan.docx
 - File MongoDB JSON: database/GiangVien-export.json
 - Video demo web: https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-web.webm
 - Video demo Android: https://github.com/Phuocws0/ltdnt-gk-qlhocphan/blob/main/docs/videos/demo-android.mp4
 
-File JSON gồm đúng bốn trường IDGV, Fullname, Image, SumClass. Video trong repo có thể được thay bằng bản quay cuối cùng của sinh viên trước khi nộp.
+File JSON gồm đúng bốn trường IDGV, Fullname, Image, SumClass.

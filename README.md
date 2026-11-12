@@ -55,3 +55,14 @@ API test tạo database riêng `QLHocPhan_test_<timestamp>` rồi dọn sau khi 
 - `docs/`: báo cáo, ảnh chụp, video và kịch bản trình bày.
 
 HTTP dùng cho demo cục bộ. Khi triển khai Internet cần HTTPS, CORS đúng tên miền, MongoDB có xác thực và thay tài khoản demo. Ứng dụng phục vụ quy mô bài tập; danh sách được tải về để tìm kiếm không dấu và phân trang trên thiết bị.
+
+## Tệp nộp bài
+
+- [Báo cáo PDF](output/pdf/Bao-cao-QLHocPhan.pdf)
+- [Báo cáo Markdown có thể chỉnh sửa](docs/BAO_CAO.md)
+- [Dữ liệu MongoDB JSON](database/GiangVien-export.json)
+- [Video demo web](docs/videos/demo-web.webm)
+- [Video demo Android](docs/videos/demo-android.mp4)
+- [Ảnh minh chứng](docs/screenshots)
+
+Đã kiểm thử web bằng Chromium và native Android bằng Expo Go. Đã export thành công cả web, Android và iOS; iOS chưa chạy thực tế do môi trường Linux. Chạy `cd mobile && npx expo export --platform all` để kiểm tra lại cả ba bundle. Repo đang để riêng tư; cấp quyền người chấm trước khi gửi link. Điền tên, MSSV, lớp vào báo cáo trước khi nộp.

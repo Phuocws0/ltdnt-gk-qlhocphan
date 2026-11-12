@@ -9,7 +9,7 @@ pdfmetrics.registerFont(TTFont('DejaVu','/usr/share/fonts/truetype/dejavu/DejaVu
 pdfmetrics.registerFont(TTFont('DejaVuBold','/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
 styles=getSampleStyleSheet()
 for name in ['Normal','Title','Heading1','Heading2']:styles[name].fontName='DejaVuBold' if name!='Normal' else 'DejaVu'
-styles['Normal'].fontSize=10;styles['Normal'].leading=16;styles['Normal'].spaceAfter=10
+styles['Normal'].fontSize=10;styles['Normal'].leading=15;styles['Normal'].spaceAfter=8
 styles['Title'].fontSize=21;styles['Title'].leading=29;styles['Title'].textColor=HexColor('#145b48')
 styles['Heading2'].fontSize=14;styles['Heading2'].leading=21;styles['Heading2'].spaceBefore=16;styles['Heading2'].textColor=HexColor('#145b48')
 story=[]
